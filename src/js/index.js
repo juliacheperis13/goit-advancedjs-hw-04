@@ -1,7 +1,6 @@
 import axios from 'axios';
 import { toggleVisibility, showMessage } from './helpers.js';
 
-const searchButton = document.querySelector('.search-button');
 const loadMoreButton = document.querySelector('.load-more-button');
 const searchForm = document.querySelector('.search-form');
 const gallery = document.querySelector('.gallery');
@@ -33,12 +32,22 @@ async function onFormSubmit(e) {
   try {
     const apiResponse = await getImages(searchQuery);
     if (!apiResponse.hits.length) {
-      showMessage('No images found!', true);
+      showMessage(
+        'Sorry, there are no images matching your search query. Please try again.',
+        true
+      );
       toggleVisibility(loadMoreButton, true);
       return;
     } else {
-      showMessage('Images found!', false)
-      toggleVisibility(loadMoreButton, false);
+      showMessage(`Hooray! We found ${apiResponse.totalHits} images.`, false);
+      if (
+        paginationConfig.currentPage * paginationConfig.itemsPerPage >=
+        Math.min(apiResponse.total, apiResponse.totalHits)
+      ) {
+        toggleVisibility(loadMoreButton, true);
+      } else {
+        toggleVisibility(loadMoreButton, false);
+      }
       gallery.insertAdjacentHTML('beforeend', buildGallery(apiResponse.hits));
     }
   } catch (error) {
@@ -56,33 +65,35 @@ async function getImages(searchQuery) {
     key: apiKy,
     q: searchQuery,
   });
-  try {
-    const response = await axios.get(`${baseUrl}?${queryString}`);
-    const images = response.data;
-    return images;
-  } catch (error) {
-    showMessage('Something went wrong!', true);
-  }
+  const { data } = await axios.get(`${baseUrl}?${queryString}`);
+  return data;
 }
 
 async function onLoadMore() {
-  paginationConfig.currentPage = paginationConfig.currentPage + 1;
-  const searchQuery = getSearchQuery();
-  const apiResponse = await getImages(searchQuery);
-  if (
-    paginationConfig.currentPage * paginationConfig.itemsPerPage >=
-    Math.min(apiResponse.total, apiResponse.totalHits)
-  ) {
-    stopLoadMore();
+  try {
+    paginationConfig.currentPage = paginationConfig.currentPage + 1;
+    const searchQuery = getSearchQuery();
+    const apiResponse = await getImages(searchQuery);
+    if (
+      paginationConfig.currentPage * paginationConfig.itemsPerPage >=
+      Math.min(apiResponse.total, apiResponse.totalHits)
+    ) {
+      stopLoadMore();
+    }
+    gallery.insertAdjacentHTML('beforeend', buildGallery(apiResponse.hits));
+  } catch (error) {
+    showMessage('Something went wrong!', true);
   }
-  gallery.insertAdjacentHTML('beforeend', buildGallery(apiResponse.hits));
 }
 
 function stopLoadMore() {
   toggleVisibility(loadMoreButton, true);
 
   if (gallery.children.length > 0) {
-    showMessage('There are no more results!', true)
+    showMessage(
+      "We're sorry, but you've reached the end of search results.",
+      true
+    );
   }
 }
 
